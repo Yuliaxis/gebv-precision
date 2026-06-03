@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Precisión GEBV — Selección Genómica</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -40,9 +42,28 @@ body {
   box-shadow: 0 4px 32px rgba(0,0,0,0.07);
 }
 h1 { font-size: 1.1rem; font-weight: 500; margin-bottom: 0.2rem; }
-.subtitle { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.75rem; }
+.subtitle { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.5rem; }
 
-.slider-row { margin-bottom: 1.75rem; max-width: 420px; }
+.formula-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1.5rem;
+}
+.formula-eq {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.95rem;
+  color: var(--text);
+  margin-bottom: 0.3rem;
+}
+.formula-meta {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.formula-meta em { font-style: italic; }
+
+.slider-row { margin-bottom: 1.5rem; max-width: 440px; }
 .ctrl label {
   display: flex; justify-content: space-between;
   font-size: 0.85rem; margin-bottom: 0.4rem;
@@ -68,6 +89,11 @@ input[type=range]::-webkit-slider-thumb {
   font-family: 'IBM Plex Mono', monospace; margin-top: 3px;
 }
 
+.readout-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
 .readouts {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -75,13 +101,12 @@ input[type=range]::-webkit-slider-thumb {
   margin-bottom: 1.5rem;
 }
 @media (max-width: 520px) { .readouts { grid-template-columns: 1fr 1fr; } }
-
 .readout {
   background: var(--bg);
   border-radius: 10px;
   border: 1px solid var(--border);
-  padding: 0.65rem 0.75rem;
   border-top: 3px solid var(--border);
+  padding: 0.65rem 0.75rem;
 }
 .readout .rl { font-size: 0.72rem; color: var(--muted); margin-bottom: 3px; }
 .readout .rv {
@@ -109,13 +134,22 @@ footer {
 </head>
 <body>
 <div class="card">
+
   <h1>Precisión del GEBV en selección genómica</h1>
   <p class="subtitle">¿Cómo influyen el tamaño de la población de referencia y la heredabilidad del fenotipo?</p>
+
+  <div class="formula-box">
+    <div id="katex-formula" style="margin-bottom:0.35rem;"></div>
+    <div class="formula-meta">
+      M<sub>e</sub> = 6 000 &nbsp;&middot;&nbsp; bovino lechero Holstein &nbsp;&middot;&nbsp;
+      <em>Daetwyler et al. (2008) Genetics</em>
+    </div>
+  </div>
 
   <div class="slider-row">
     <div class="ctrl">
       <label>
-        Nₚ — tamaño población de referencia
+        N<sub>p</sub> &mdash; tamaño población de referencia
         <span class="val" id="np-val">2 000</span>
       </label>
       <input type="range" id="np" min="100" max="20000" step="100" value="2000">
@@ -123,26 +157,22 @@ footer {
     </div>
   </div>
 
-  <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:0.6rem 1rem; margin-bottom:1.25rem; font-size:0.82rem; color:var(--muted);">
-    <span style="font-family:'IBM Plex Mono',monospace; color:var(--text);">r = √[ Nₚ · h² / (Nₚ · h² + Mₑ) ]</span>
-      <p style="font-size:0.78rem; color:var(--muted); margin-bottom:0.5rem;">Precisión del GEBV (r) para Nₚ seleccionado</p>nbsp;·  <p style="font-size:0.78rem; color:var(--muted); margin-bottom:0.5rem;">Precisión del GEBV (r) para Nₚ seleccionado</p>nbsp; Mₑ = 6 000 (Holstein · Ne histórico ~100)   <p style="font-size:0.78rem; color:var(--muted); margin-bottom:0.5rem;">Precisión del GEBV (r) para Nₚ seleccionado</p>nbsp;·  <p style="font-size:0.78rem; color:var(--muted); margin-bottom:0.5rem;">Precisión del GEBV (r) para Nₚ seleccionado</p>nbsp; <em>Daetwyler et al. (2008) Genetics</em>
-  </div>
-  <p style="font-size:0.78rem; color:var(--muted); margin-bottom:0.5rem;">Precisión del GEBV (r) para Nₚ seleccionado</p>
+  <p class="readout-label">Precisión del GEBV (r) para N<sub>p</sub> seleccionado</p>
   <div class="readouts">
     <div class="readout" style="border-top-color:var(--c1);">
-      <div class="rl">h² = 0.10</div>
+      <div class="rl">h&sup2; = 0.10</div>
       <div class="rv" id="r1">—</div>
     </div>
     <div class="readout" style="border-top-color:var(--c2);">
-      <div class="rl">h² = 0.30</div>
+      <div class="rl">h&sup2; = 0.30</div>
       <div class="rv" id="r2">—</div>
     </div>
     <div class="readout" style="border-top-color:var(--c3);">
-      <div class="rl">h² = 0.50</div>
+      <div class="rl">h&sup2; = 0.50</div>
       <div class="rv" id="r3">—</div>
     </div>
     <div class="readout" style="border-top-color:var(--c4);">
-      <div class="rl">h² = 0.80</div>
+      <div class="rl">h&sup2; = 0.80</div>
       <div class="rv" id="r4">—</div>
     </div>
   </div>
@@ -152,15 +182,15 @@ footer {
   </div>
 
   <div class="legend">
-    <div class="legend-item"><div class="leg-line" style="background:var(--c1)"></div>h²=0.10</div>
-    <div class="legend-item"><div class="leg-line" style="background:var(--c2)"></div>h²=0.30</div>
-    <div class="legend-item"><div class="leg-line" style="background:var(--c3)"></div>h²=0.50</div>
-    <div class="legend-item"><div class="leg-line" style="background:var(--c4)"></div>h²=0.80</div>
+    <div class="legend-item"><div class="leg-line" style="background:var(--c1)"></div>h&sup2;=0.10</div>
+    <div class="legend-item"><div class="leg-line" style="background:var(--c2)"></div>h&sup2;=0.30</div>
+    <div class="legend-item"><div class="leg-line" style="background:var(--c3)"></div>h&sup2;=0.50</div>
+    <div class="legend-item"><div class="leg-line" style="background:var(--c4)"></div>h&sup2;=0.80</div>
   </div>
 
-  <footer>Goddard &amp; Hayes (2009) · Nature Reviews Genetics &nbsp;·&nbsp; Herramienta docente — Genética Animal</footer>
-</div>
+  <footer>Goddard &amp; Hayes (2009) &middot; Nature Reviews Genetics &nbsp;&middot;&nbsp; Herramienta docente &mdash; Genética Animal</footer>
 
+</div>
 <script>
 const Me = 6000;
 const H2S = [0.10, 0.30, 0.50, 0.80];
@@ -208,7 +238,7 @@ const chart = new Chart(document.getElementById('chart'), {
   plugins: [markerPlugin],
   data: {
     datasets: H2S.map((hh, i) => ({
-      label: `h²=${hh}`,
+      label: 'h²=' + hh,
       data: labels.map(np => ({ x: np, y: parseFloat(acc(np, hh).toFixed(4)) })),
       borderColor: COLORS[i],
       borderWidth: 2,
@@ -225,7 +255,7 @@ const chart = new Chart(document.getElementById('chart'), {
     scales: {
       x: {
         type: 'linear', min: 0, max: NP_MAX,
-        title: { display: true, text: 'Nº individuos en la población de referencia (Nₚ)', font: { size: 11 }, color: '#7a7469' },
+        title: { display: true, text: 'Nº individuos en la población de referencia (Np)', font: { size: 11 }, color: '#7a7469' },
         ticks: {
           callback: v => v === 0 ? '0' : (v/1000).toFixed(0)+'k',
           font: { size: 10, family: 'IBM Plex Mono, monospace' }, color: '#7a7469',
@@ -245,8 +275,8 @@ const chart = new Chart(document.getElementById('chart'), {
       tooltip: {
         mode: 'index', intersect: false,
         callbacks: {
-          title: items => `Nₚ = ${Math.round(items[0].parsed.x).toLocaleString('es-ES')}`,
-          label: item => ` ${item.dataset.label}  →  r = ${item.parsed.y.toFixed(3)}`
+          title: items => 'Np = ' + Math.round(items[0].parsed.x).toLocaleString('es-ES'),
+          label: item => ' ' + item.dataset.label + '  →  r = ' + item.parsed.y.toFixed(3)
         },
         backgroundColor: '#fff', borderColor: '#e0dbd0', borderWidth: 1,
         titleColor: '#1c1a16', bodyColor: '#1c1a16',
@@ -272,6 +302,9 @@ document.getElementById('np').addEventListener('input', e => {
 });
 
 updateReadouts();
+
+katex.render("r = \\sqrt{\\dfrac{N_p \\cdot h^2}{N_p \\cdot h^2 + M_e}}", document.getElementById("katex-formula"), {throwOnError: false, displayMode: false});
+
 </script>
 </body>
 </html>
