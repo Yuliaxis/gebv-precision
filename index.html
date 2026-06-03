@@ -42,9 +42,7 @@ body {
 h1 { font-size: 1.1rem; font-weight: 500; margin-bottom: 0.2rem; }
 .subtitle { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.75rem; }
 
-.sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 2.5rem; margin-bottom: 1.75rem; }
-@media (max-width: 500px) { .sliders { grid-template-columns: 1fr; } }
-
+.slider-row { margin-bottom: 1.75rem; max-width: 420px; }
 .ctrl label {
   display: flex; justify-content: space-between;
   font-size: 0.85rem; margin-bottom: 0.4rem;
@@ -70,7 +68,28 @@ input[type=range]::-webkit-slider-thumb {
   font-family: 'IBM Plex Mono', monospace; margin-top: 3px;
 }
 
-.canvas-wrap { position: relative; width: 100%; height: 320px; }
+.readouts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 520px) { .readouts { grid-template-columns: 1fr 1fr; } }
+
+.readout {
+  background: var(--bg);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 0.65rem 0.75rem;
+  border-top: 3px solid var(--border);
+}
+.readout .rl { font-size: 0.72rem; color: var(--muted); margin-bottom: 3px; }
+.readout .rv {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.1rem; font-weight: 500; color: var(--text);
+}
+
+.canvas-wrap { position: relative; width: 100%; height: 300px; }
 
 .legend {
   display: flex; flex-wrap: wrap; gap: 6px 18px;
@@ -82,35 +101,50 @@ input[type=range]::-webkit-slider-thumb {
 }
 .leg-line { width: 20px; height: 2.5px; border-radius: 2px; }
 
-footer { margin-top: 1.1rem; font-size: 0.72rem; color: var(--muted); text-align: center; }
+footer {
+  margin-top: 1.25rem; font-size: 0.72rem;
+  color: var(--muted); text-align: center;
+}
 </style>
 </head>
 <body>
 <div class="card">
   <h1>Precisión del GEBV en selección genómica</h1>
-  <p class="subtitle">Efecto del tamaño de la población de referencia y la heredabilidad del fenotipo</p>
+  <p class="subtitle">¿Cómo influyen el tamaño de la población de referencia y la heredabilidad del fenotipo?</p>
 
-  <div class="sliders">
+  <div class="slider-row">
     <div class="ctrl">
       <label>
-        Nₚ — población de referencia
+        Nₚ — tamaño población de referencia
         <span class="val" id="np-val">2 000</span>
       </label>
       <input type="range" id="np" min="100" max="20000" step="100" value="2000">
-      <div class="tick-row"><span>100</span><span>10k</span><span>20k</span></div>
+      <div class="tick-row"><span>100</span><span>10 000</span><span>20 000</span></div>
     </div>
-    <div class="ctrl">
-      <label>
-        h² — heredabilidad
-        <span class="val" id="h2-val">0.30</span>
-      </label>
-      <input type="range" id="h2" min="0.05" max="0.95" step="0.05" value="0.30">
-      <div class="tick-row"><span>0.05</span><span>0.50</span><span>0.95</span></div>
+  </div>
+
+  <p style="font-size:0.78rem; color:var(--muted); margin-bottom:0.5rem;">Precisión del GEBV (r) para Nₚ seleccionado</p>
+  <div class="readouts">
+    <div class="readout" style="border-top-color:var(--c1);">
+      <div class="rl">h² = 0.10</div>
+      <div class="rv" id="r1">—</div>
+    </div>
+    <div class="readout" style="border-top-color:var(--c2);">
+      <div class="rl">h² = 0.30</div>
+      <div class="rv" id="r2">—</div>
+    </div>
+    <div class="readout" style="border-top-color:var(--c3);">
+      <div class="rl">h² = 0.50</div>
+      <div class="rv" id="r3">—</div>
+    </div>
+    <div class="readout" style="border-top-color:var(--c4);">
+      <div class="rl">h² = 0.80</div>
+      <div class="rv" id="r4">—</div>
     </div>
   </div>
 
   <div class="canvas-wrap">
-    <canvas id="chart" role="img" aria-label="Curvas de precisión del GEBV en función del tamaño de la población de referencia para cuatro valores de heredabilidad"></canvas>
+    <canvas id="chart" role="img" aria-label="Curvas de precisión del GEBV en función del tamaño de la población de referencia para cuatro heredabilidades fijas"></canvas>
   </div>
 
   <div class="legend">
@@ -127,10 +161,11 @@ footer { margin-top: 1.1rem; font-size: 0.72rem; color: var(--muted); text-align
 const Me = 1000;
 const H2S = [0.10, 0.30, 0.50, 0.80];
 const COLORS = ['#b5301f','#1a5c96','#c07000','#1a7a3a'];
-const STEPS = 300;
+const IDS = ['r1','r2','r3','r4'];
 const NP_MAX = 20000;
+const STEPS = 300;
 
-let Np = 2000, h2 = 0.30;
+let Np = 2000;
 
 function acc(np, h2) { return Math.sqrt((np * h2) / (np * h2 + Me)); }
 
@@ -164,23 +199,21 @@ const markerPlugin = {
   }
 };
 
-function makeDatasets() {
-  return H2S.map((hh, i) => ({
-    label: `h²=${hh}`,
-    data: labels.map(np => ({ x: np, y: parseFloat(acc(np, hh).toFixed(4)) })),
-    borderColor: COLORS[i],
-    borderWidth: 2,
-    pointRadius: 0,
-    tension: 0.4,
-    fill: false,
-    parsing: false,
-  }));
-}
-
 const chart = new Chart(document.getElementById('chart'), {
   type: 'line',
   plugins: [markerPlugin],
-  data: { datasets: makeDatasets() },
+  data: {
+    datasets: H2S.map((hh, i) => ({
+      label: `h²=${hh}`,
+      data: labels.map(np => ({ x: np, y: parseFloat(acc(np, hh).toFixed(4)) })),
+      borderColor: COLORS[i],
+      borderWidth: 2,
+      pointRadius: 0,
+      tension: 0.4,
+      fill: false,
+      parsing: false,
+    }))
+  },
   options: {
     responsive: true, maintainAspectRatio: false,
     animation: { duration: 150 },
@@ -221,28 +254,20 @@ const chart = new Chart(document.getElementById('chart'), {
   }
 });
 
-function highlightActive() {
-  const idx = H2S.findIndex(hh => Math.abs(hh - h2) < 0.01);
-  chart.data.datasets.forEach((ds, i) => {
-    ds.borderWidth = i === idx ? 3 : 1.5;
-    ds.borderColor = i === idx ? COLORS[i] : COLORS[i] + '70';
+function updateReadouts() {
+  IDS.forEach((id, i) => {
+    document.getElementById(id).textContent = acc(Np, H2S[i]).toFixed(3);
   });
-  chart.update('none');
 }
 
 document.getElementById('np').addEventListener('input', e => {
   Np = +e.target.value;
   document.getElementById('np-val').textContent = Np.toLocaleString('es-ES');
+  updateReadouts();
   chart.update('none');
 });
 
-document.getElementById('h2').addEventListener('input', e => {
-  h2 = +e.target.value;
-  document.getElementById('h2-val').textContent = h2.toFixed(2);
-  highlightActive();
-});
-
-highlightActive();
+updateReadouts();
 </script>
 </body>
 </html>
