@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Precisión GEBV — Selección Genómica</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f6f4ef;
+  --surface: #ffffff;
+  --border: #e0dbd0;
+  --text: #1c1a16;
+  --muted: #7a7469;
+  --accent: #2d6a4f;
+  --c1: #b5301f;
+  --c2: #1a5c96;
+  --c3: #c07000;
+  --c4: #1a7a3a;
+}
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem 2rem 1.5rem;
+  width: 100%;
+  max-width: 760px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.07);
+}
+h1 { font-size: 1.1rem; font-weight: 500; margin-bottom: 0.2rem; }
+.subtitle { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.75rem; }
+
+.sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 2.5rem; margin-bottom: 1.75rem; }
+@media (max-width: 500px) { .sliders { grid-template-columns: 1fr; } }
+
+.ctrl label {
+  display: flex; justify-content: space-between;
+  font-size: 0.85rem; margin-bottom: 0.4rem;
+}
+.ctrl label .val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.82rem; color: var(--accent); font-weight: 500;
+}
+input[type=range] {
+  width: 100%; -webkit-appearance: none;
+  height: 4px; border-radius: 2px;
+  background: var(--border); outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+  border: 2px solid white; box-shadow: 0 0 0 1px var(--accent);
+}
+.tick-row {
+  display: flex; justify-content: space-between;
+  font-size: 0.68rem; color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace; margin-top: 3px;
+}
+
+.canvas-wrap { position: relative; width: 100%; height: 320px; }
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  margin-top: 0.9rem; justify-content: center;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.76rem; font-family: 'IBM Plex Mono', monospace; color: var(--muted);
+}
+.leg-line { width: 20px; height: 2.5px; border-radius: 2px; }
+
+footer { margin-top: 1.1rem; font-size: 0.72rem; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Precisión del GEBV en selección genómica</h1>
+  <p class="subtitle">Efecto del tamaño de la población de referencia y la heredabilidad del fenotipo</p>
+
+  <div class="sliders">
+    <div class="ctrl">
+      <label>
+        Nₚ — población de referencia
+        <span class="val" id="np-val">2 000</span>
+      </label>
+      <input type="range" id="np" min="100" max="20000" step="100" value="2000">
+      <div class="tick-row"><span>100</span><span>10k</span><span>20k</span></div>
+    </div>
+    <div class="ctrl">
+      <label>
+        h² — heredabilidad
+        <span class="val" id="h2-val">0.30</span>
+      </label>
+      <input type="range" id="h2" min="0.05" max="0.95" step="0.05" value="0.30">
+      <div class="tick-row"><span>0.05</span><span>0.50</span><span>0.95</span></div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="chart" role="img" aria-label="Curvas de precisión del GEBV en función del tamaño de la población de referencia para cuatro valores de heredabilidad"></canvas>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="leg-line" style="background:var(--c1)"></div>h²=0.10</div>
+    <div class="legend-item"><div class="leg-line" style="background:var(--c2)"></div>h²=0.30</div>
+    <div class="legend-item"><div class="leg-line" style="background:var(--c3)"></div>h²=0.50</div>
+    <div class="legend-item"><div class="leg-line" style="background:var(--c4)"></div>h²=0.80</div>
+  </div>
+
+  <footer>Goddard &amp; Hayes (2009) · Nature Reviews Genetics &nbsp;·&nbsp; Herramienta docente — Genética Animal</footer>
+</div>
+
+<script>
+const Me = 1000;
+const H2S = [0.10, 0.30, 0.50, 0.80];
+const COLORS = ['#b5301f','#1a5c96','#c07000','#1a7a3a'];
+const STEPS = 300;
+const NP_MAX = 20000;
+
+let Np = 2000, h2 = 0.30;
+
+function acc(np, h2) { return Math.sqrt((np * h2) / (np * h2 + Me)); }
+
+const labels = Array.from({length: STEPS + 1}, (_, i) => Math.round(i * NP_MAX / STEPS));
+
+const markerPlugin = {
+  id: 'marker',
+  afterDraw(chart) {
+    const { ctx, scales } = chart;
+    const x = scales.x.getPixelForValue(Np);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(45,106,79,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, scales.y.top);
+    ctx.lineTo(x, scales.y.bottom);
+    ctx.stroke();
+    H2S.forEach((hh, i) => {
+      const y = scales.y.getPixelForValue(acc(Np, hh));
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = COLORS[i];
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+};
+
+function makeDatasets() {
+  return H2S.map((hh, i) => ({
+    label: `h²=${hh}`,
+    data: labels.map(np => ({ x: np, y: parseFloat(acc(np, hh).toFixed(4)) })),
+    borderColor: COLORS[i],
+    borderWidth: 2,
+    pointRadius: 0,
+    tension: 0.4,
+    fill: false,
+    parsing: false,
+  }));
+}
+
+const chart = new Chart(document.getElementById('chart'), {
+  type: 'line',
+  plugins: [markerPlugin],
+  data: { datasets: makeDatasets() },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    animation: { duration: 150 },
+    parsing: false,
+    scales: {
+      x: {
+        type: 'linear', min: 0, max: NP_MAX,
+        title: { display: true, text: 'Nº individuos en la población de referencia (Nₚ)', font: { size: 11 }, color: '#7a7469' },
+        ticks: {
+          callback: v => v === 0 ? '0' : (v/1000).toFixed(0)+'k',
+          font: { size: 10, family: 'IBM Plex Mono, monospace' }, color: '#7a7469',
+          maxRotation: 0, maxTicksLimit: 6
+        },
+        grid: { color: 'rgba(0,0,0,0.05)' }
+      },
+      y: {
+        min: 0, max: 1,
+        title: { display: true, text: 'Precisión del GEBV (r)', font: { size: 11 }, color: '#7a7469' },
+        ticks: { stepSize: 0.2, font: { size: 10, family: 'IBM Plex Mono, monospace' }, color: '#7a7469' },
+        grid: { color: 'rgba(0,0,0,0.05)' }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        mode: 'index', intersect: false,
+        callbacks: {
+          title: items => `Nₚ = ${Math.round(items[0].parsed.x).toLocaleString('es-ES')}`,
+          label: item => ` ${item.dataset.label}  →  r = ${item.parsed.y.toFixed(3)}`
+        },
+        backgroundColor: '#fff', borderColor: '#e0dbd0', borderWidth: 1,
+        titleColor: '#1c1a16', bodyColor: '#1c1a16',
+        titleFont: { family: 'IBM Plex Mono, monospace', size: 11 },
+        bodyFont: { family: 'IBM Plex Mono, monospace', size: 11 },
+        padding: 10, boxPadding: 4
+      }
+    }
+  }
+});
+
+function highlightActive() {
+  const idx = H2S.findIndex(hh => Math.abs(hh - h2) < 0.01);
+  chart.data.datasets.forEach((ds, i) => {
+    ds.borderWidth = i === idx ? 3 : 1.5;
+    ds.borderColor = i === idx ? COLORS[i] : COLORS[i] + '70';
+  });
+  chart.update('none');
+}
+
+document.getElementById('np').addEventListener('input', e => {
+  Np = +e.target.value;
+  document.getElementById('np-val').textContent = Np.toLocaleString('es-ES');
+  chart.update('none');
+});
+
+document.getElementById('h2').addEventListener('input', e => {
+  h2 = +e.target.value;
+  document.getElementById('h2-val').textContent = h2.toFixed(2);
+  highlightActive();
+});
+
+highlightActive();
+</script>
+</body>
+</html>
